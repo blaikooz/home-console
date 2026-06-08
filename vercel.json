@@ -1,13 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "vite build",
-  "outputDirectory": "dist",
-  "functions": {
-    "api/weather.ts": { "maxDuration": 15 },
-    "api/airspace.ts": { "maxDuration": 15 },
-    "api/transit.ts": { "maxDuration": 30 }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "outputDirectory": "dist"
 }
