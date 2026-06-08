@@ -1,6 +1,6 @@
-import { fetchGtfsFeed } from './gtfs';
-import type { MinimalReq, MinimalRes } from './handlers';
-import { sendJson } from './handlers';
+import { fetchGtfsFeed } from './gtfs.js';
+import type { MinimalReq, MinimalRes } from './handlers.js';
+import { sendJson } from './handlers.js';
 
 export async function transitHandler(_req: MinimalReq, res: MinimalRes) {
   try {
