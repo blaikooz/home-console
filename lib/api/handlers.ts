@@ -1,9 +1,16 @@
 export interface MinimalRes {
-  status(code: number): MinimalRes;
-  json(body: unknown): unknown;
+  statusCode: number;
+  setHeader(name: string, value: string | string[]): void;
+  end(body?: string): void;
 }
 export interface MinimalReq {
   url?: string;
+}
+
+export function sendJson(res: MinimalRes, status: number, body: unknown) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(body));
 }
 
 export async function weatherHandler(_req: MinimalReq, res: MinimalRes) {
@@ -23,11 +30,11 @@ export async function weatherHandler(_req: MinimalReq, res: MinimalRes) {
     const precipitationProbability = arr && arr[hourIndex] !== undefined ? arr[hourIndex] : 0;
     if (data.current) data.current.precipitation_probability = precipitationProbability;
 
-    return res.status(200).json(data);
+    return sendJson(res, 200, data);
   } catch (error: any) {
     clearTimeout(id);
     console.error('Weather fetching error:', error);
-    return res.status(502).json({ error: 'Open-Meteo API connection failed.' });
+    return sendJson(res, 502, { error: 'Open-Meteo API connection failed.' });
   }
 }
 
@@ -42,11 +49,10 @@ export async function airspaceHandler(_req: MinimalReq, res: MinimalRes) {
     clearTimeout(id);
     if (!response.ok) throw new Error(`ADSB.lol response code: ${response.status}`);
     const data = await response.json();
-    return res.status(200).json(data);
+    return sendJson(res, 200, data);
   } catch (error: any) {
     clearTimeout(id);
     console.error('Airspace fetching error:', error);
-    return res.status(502).json({ error: 'ADSB.lol airspace API connection failed.' });
+    return sendJson(res, 502, { error: 'ADSB.lol airspace API connection failed.' });
   }
 }
-

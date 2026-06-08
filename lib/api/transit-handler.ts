@@ -1,5 +1,6 @@
 import { fetchGtfsFeed } from './gtfs';
 import type { MinimalReq, MinimalRes } from './handlers';
+import { sendJson } from './handlers';
 
 export async function transitHandler(_req: MinimalReq, res: MinimalRes) {
   try {
@@ -68,9 +69,9 @@ export async function transitHandler(_req: MinimalReq, res: MinimalRes) {
       result[route].S = Array.from(new Set(result[route].S)).sort((a, b) => a - b).slice(0, 3);
     }
 
-    return res.status(200).json(result);
+    return sendJson(res, 200, result);
   } catch (error: any) {
     console.error('Transit endpoint logic error:', error);
-    return res.status(502).json({ error: error.message || 'MTA feed service is currently offline.' });
+    return sendJson(res, 502, { error: error.message || 'MTA feed service is currently offline.' });
   }
 }
