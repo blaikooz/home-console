@@ -30,7 +30,7 @@ const SIZING: Record<DeviceType, {
   routeLabel: string;
 }> = {
   desktop: {
-    root: 'p-4',
+    root: 'p-4 h-screen overflow-hidden',
     headerWrap: 'grid grid-cols-[1fr_auto_1fr] gap-4 items-center mb-5',
     headerGap: 'gap-4',
     headerDate: 'text-3xl',
@@ -48,7 +48,7 @@ const SIZING: Record<DeviceType, {
     routeLabel: 'text-xs',
   },
   tablet: {
-    root: 'p-3',
+    root: 'p-3 h-screen overflow-hidden',
     headerWrap: 'grid grid-cols-[1fr_auto_1fr] gap-3 items-center mb-3',
     headerGap: 'gap-3',
     headerDate: 'text-lg',
@@ -66,13 +66,13 @@ const SIZING: Record<DeviceType, {
     routeLabel: 'text-[11px]',
   },
   mobile: {
-    root: 'p-2 overflow-y-auto',
+    root: 'p-2 min-h-screen overflow-y-auto',
     headerWrap: 'flex flex-col items-center text-center gap-1 mb-3',
     headerGap: 'gap-2',
     headerDate: 'text-base',
     headerTime: 'text-4xl',
     headerLoc: 'text-base',
-    panelsWrap: 'flex-1 flex flex-col gap-3 overflow-y-auto',
+    panelsWrap: 'flex-1 flex flex-col gap-3',
     panelPad: 'p-3',
     weatherTemp: 'text-5xl',
     weatherCond: 'text-xl',
@@ -302,7 +302,7 @@ function Dashboard({ device }: { device: DeviceType }) {
   const { day, time12hStr } = formatTime(now);
 
   return (
-    <div className={`h-screen w-screen flex flex-col overflow-hidden select-none relative bg-black text-[#00ff41] font-mono leading-normal ${s.root}`}>
+    <div className={`w-screen flex flex-col select-none relative bg-black text-[#00ff41] font-mono leading-normal ${s.root}`}>
       <div className="crt-overlay"></div>
 
       {/* HEADER */}

@@ -30,7 +30,7 @@ export default function BootScreen({ onSelect }: Props) {
   ];
 
   return (
-    <div className="h-screen w-screen bg-black text-[#00ff41] font-mono flex flex-col items-center justify-center p-6 select-none relative overflow-hidden">
+    <div className="min-h-screen w-screen bg-black text-[#00ff41] font-mono flex flex-col items-center justify-center p-6 select-none relative overflow-y-auto">
       <div className="crt-overlay"></div>
 
       <div className="relative z-10 w-full max-w-3xl flex flex-col items-center gap-8">

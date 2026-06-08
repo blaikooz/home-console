@@ -8,7 +8,7 @@
 @layer utilities {
   /* CRT Scanlines and chroma aberration overlay */
   .crt-overlay {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
@@ -109,5 +109,5 @@ body {
   font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
   background-color: #000000;
   color: #00ff41;
-  overflow: hidden;
+  overflow-x: hidden;
 }
