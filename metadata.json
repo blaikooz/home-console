@@ -1,0 +1,6 @@
+{
+  "name": "Bed-Stuy Living Room Console",
+  "description": "A high-fidelity retro terminal-style living room console displaying weather, overhead airspace, and MTA subway transit arrivals.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

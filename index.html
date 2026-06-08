@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QUINCY × NOSTRAND // BED-STUY CONSOLE</title>
+    <script>
+      // MatchMedia and addListener/removeListener polyfill for sandboxed iframe environments or browser issues
+      (function() {
+        if (typeof window === 'undefined') return;
+        try {
+          if (!window.matchMedia) {
+            window.matchMedia = function(query) {
+              return {
+                matches: false,
+                media: query,
+                onchange: null,
+                addListener: function() {},
+                removeListener: function() {},
+                addEventListener: function() {},
+                removeEventListener: function() {},
+                dispatchEvent: function() { return false; }
+              };
+            };
+          } else {
+            // Some environments have window.matchMedia but mql doesn't have addListener (or vice versa)
+            const oldMatchMedia = window.matchMedia;
+            window.matchMedia = function(query) {
+              const mql = oldMatchMedia(query);
+              if (mql) {
+                if (typeof mql.addListener !== 'function') {
+                  mql.addListener = mql.addEventListener || function() {};
+                }
+                if (typeof mql.removeListener !== 'function') {
+                  mql.removeListener = mql.removeEventListener || function() {};
+                }
+              }
+              return mql;
+            };
+          }
+        } catch (e) {
+          console.warn('Failed to define matchMedia polyfill:', e);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

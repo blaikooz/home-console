@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-mono: 'JetBrains Mono', 'Courier New', Courier, monospace;
+}
+
+@layer utilities {
+  /* CRT Scanlines and chroma aberration overlay */
+  .crt-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(rgba(18,16,16,0) 0, rgba(18,16,16,.1) 50%, rgba(18,16,16,0) 100%),
+                repeating-linear-gradient(90deg, rgba(255,0,0,.015), rgba(0,255,0,.01), rgba(0,0,255,.015));
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* Glitch text effect */
+  .glitch-text {
+    text-shadow: 1px 0 #003b0f, -1px 0 #0000ff;
+  }
+
+  /* High Density styling utilities */
+  .panel-border {
+    border: 2px solid #005a18;
+  }
+
+  .panel-header {
+    background-color: #00aa2d;
+    color: #000000;
+    padding: 4px 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    font-size: 0.875rem; /* larger header text */
+    letter-spacing: 0.05em;
+  }
+
+  .value-bright {
+    color: #00ff41;
+    font-weight: 800;
+  }
+
+  .label-dim {
+    color: #00aa2d; /* Make labeling labels vastly more visible than dark green #003b0f */
+  }
+
+  /* Phosphor glow */
+  .phosphor-glow {
+    text-shadow: 0 0 6px rgba(0, 255, 65, 0.7);
+  }
+
+  .phosphor-glow-dim {
+    text-shadow: 0 0 3px rgba(0, 59, 15, 0.5);
+  }
+
+  /* Terminal scanline flicker animation */
+  @keyframes crt-flicker {
+    0% { opacity: 0.985; }
+    50% { opacity: 1; }
+    100% { opacity: 0.99; }
+  }
+
+  .crt-flicker {
+    animation: crt-flicker 0.2s infinite;
+  }
+
+  /* Blinking cursor animation */
+  @keyframes blink-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .blink-cursor {
+    animation: blink-cursor 1.2s infinite steps(2, start);
+  }
+
+  /* Blinking border animation for incoming trains */
+  @keyframes blink-border-green {
+    0%, 100% {
+      border-color: #00ff41;
+      box-shadow: inset 0 0 4px rgba(0, 255, 65, 0.3), 0 0 4px rgba(0, 255, 65, 0.3);
+    }
+    50% {
+      border-color: transparent;
+      box-shadow: none;
+    }
+  }
+
+  .blink-border-incoming {
+    border: 1px solid #00ff41;
+    animation: blink-border-green 1s infinite steps(2, start);
+  }
+}
+
+/* Base custom styles to force monospace throughout */
+body {
+  font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  background-color: #000000;
+  color: #00ff41;
+  overflow: hidden;
+}
