@@ -32,7 +32,7 @@ export async function fetchGtfsFeed(url: string) {
           Pragma: 'no-cache',
         },
       },
-      8000,
+      4000,
     );
     if (r.ok) return await decode(r);
     console.warn(`Direct fetch ${url} -> ${r.status} ${r.statusText}`);
@@ -43,7 +43,7 @@ export async function fetchGtfsFeed(url: string) {
   // 2. allorigins proxy
   try {
     const proxied = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const r = await fetchWithTimeout(proxied, { headers: { 'User-Agent': BROWSER_UA } }, 10000);
+    const r = await fetchWithTimeout(proxied, { headers: { 'User-Agent': BROWSER_UA } }, 5000);
     if (r.ok) return await decode(r);
     console.warn(`allorigins proxy ${url} -> ${r.status} ${r.statusText}`);
   } catch (e: any) {
@@ -52,7 +52,7 @@ export async function fetchGtfsFeed(url: string) {
 
   // 3. codetabs proxy
   const proxied = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-  const r = await fetchWithTimeout(proxied, { headers: { 'User-Agent': BROWSER_UA } }, 10000);
+  const r = await fetchWithTimeout(proxied, { headers: { 'User-Agent': BROWSER_UA } }, 4000);
   if (!r.ok) throw new Error(`All fetch attempts failed for ${url} (last status ${r.status})`);
   return await decode(r);
 }

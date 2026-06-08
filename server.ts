@@ -1,7 +1,8 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { weatherHandler, airspaceHandler, transitHandler } from './lib/api/handlers';
+import { weatherHandler, airspaceHandler } from './lib/api/handlers';
+import { transitHandler } from './lib/api/transit-handler';
 
 async function startServer() {
   const app = express();
