@@ -35,11 +35,10 @@ export default function BootScreen({ onSelect }: Props) {
 
       <div className="relative z-10 w-full max-w-3xl flex flex-col items-center gap-8">
         <div className="text-center space-y-1">
-          <div className="text-xs label-dim font-extrabold tracking-widest">BEDSTUY-CONSOLE // BIOS v1.0</div>
+          <div className="text-xs label-dim font-extrabold tracking-widest">HOME_CONSOLE // BIOS v1.0</div>
           <div className="text-3xl md:text-4xl font-black phosphor-glow glitch-text tracking-tight">
             [ BOOT SEQUENCE ]
           </div>
-          <div className="text-xs label-dim font-extrabold tracking-widest">QUINCY ST &times; NOSTRAND AVE</div>
         </div>
 
         <div className="w-full border-2 border-[#005a18] bg-black p-4 text-sm font-extrabold space-y-1 leading-relaxed">
