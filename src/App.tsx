@@ -3,64 +3,198 @@
  * Retro terminal-style single-page console for weather, airspace, and transit.
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { Plane, Navigation, Gauge, ArrowUp, Globe } from 'lucide-react';
-import { WeatherData, AirspaceData, TransitData } from './types';
-import { mapWmoCode, getCompassHeading, formatTime, getWeatherAscii, getFlightRoute, getAirlineName } from './utils';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Gauge, ArrowUp, Globe } from 'lucide-react';
+import BootScreen from './BootScreen';
+import WeatherScene from './WeatherScene';
+import { DeviceType, WeatherData, AirspaceData, TransitData } from './types';
+import { mapWmoCode, getCompassHeading, formatTime, getFlightRoute, getAirlineName, getCountryFlag, getAirportCountry } from './utils';
 
-function renderArrivalPill(min: number, index: number) {
-  let borderClass = '';
-  let textClass = '';
-  if (min <= 5) {
-    borderClass = 'border-2 border-[#ff453a] bg-red-950/25';
-    textClass = 'text-[#ff453a] font-black shadow-[0_0_10px_rgba(255,69,58,0.45)]';
-  } else if (min <= 10) {
-    borderClass = 'border-2 border-[#ffd60a] bg-yellow-950/25';
-    textClass = 'text-[#ffd60a] font-black shadow-[0_0_10px_rgba(255,214,10,0.45)]';
-  } else if (min <= 15) {
-    borderClass = 'border-2 border-[#30d158] bg-green-950/25';
-    textClass = 'text-[#30d158] font-black shadow-[0_0_10px_rgba(48,209,88,0.45)]';
-  } else {
-    borderClass = 'border-2 border-[#005a18]/60 bg-[#001103]';
-    textClass = 'text-[#00ff41] font-black';
+// Sizing profile per chosen device. Picked at boot, then locked for the session.
+const SIZING: Record<DeviceType, {
+  root: string;
+  headerWrap: string;
+  headerGap: string;
+  headerDate: string;
+  headerTime: string;
+  headerLoc: string;
+  panelsWrap: string;
+  panelPad: string;
+  weatherTemp: string;
+  weatherCond: string;
+  weatherStat: string;
+  weatherAscii: string;
+  arrivalPill: string;
+  arrivalPillMin: string;
+  routeBadge: string;
+  routeLabel: string;
+}> = {
+  desktop: {
+    root: 'p-4',
+    headerWrap: 'grid grid-cols-[1fr_auto_1fr] gap-4 items-center mb-5',
+    headerGap: 'gap-4',
+    headerDate: 'text-3xl',
+    headerTime: 'text-6xl',
+    headerLoc: 'text-3xl',
+    panelsWrap: 'flex-1 flex flex-row gap-4 overflow-hidden',
+    panelPad: 'p-5',
+    weatherTemp: 'text-7xl',
+    weatherCond: 'text-3xl',
+    weatherStat: 'text-xl',
+    weatherAscii: 'text-xl scale-125',
+    arrivalPill: 'px-3 py-1 text-base',
+    arrivalPillMin: 'text-xs',
+    routeBadge: 'w-6 h-6 text-xs',
+    routeLabel: 'text-xs',
+  },
+  tablet: {
+    root: 'p-3',
+    headerWrap: 'grid grid-cols-[1fr_auto_1fr] gap-3 items-center mb-3',
+    headerGap: 'gap-3',
+    headerDate: 'text-lg',
+    headerTime: 'text-4xl',
+    headerLoc: 'text-lg',
+    panelsWrap: 'flex-1 flex flex-row gap-3 overflow-hidden',
+    panelPad: 'p-3',
+    weatherTemp: 'text-5xl',
+    weatherCond: 'text-xl',
+    weatherStat: 'text-base',
+    weatherAscii: 'text-sm scale-100',
+    arrivalPill: 'px-2 py-0.5 text-sm',
+    arrivalPillMin: 'text-[10px]',
+    routeBadge: 'w-5 h-5 text-[10px]',
+    routeLabel: 'text-[11px]',
+  },
+  mobile: {
+    root: 'p-2 overflow-y-auto',
+    headerWrap: 'flex flex-col items-center text-center gap-1 mb-3',
+    headerGap: 'gap-2',
+    headerDate: 'text-base',
+    headerTime: 'text-4xl',
+    headerLoc: 'text-base',
+    panelsWrap: 'flex-1 flex flex-col gap-3 overflow-y-auto',
+    panelPad: 'p-3',
+    weatherTemp: 'text-5xl',
+    weatherCond: 'text-xl',
+    weatherStat: 'text-base',
+    weatherAscii: 'text-sm scale-100',
+    arrivalPill: 'px-2 py-0.5 text-sm',
+    arrivalPillMin: 'text-[10px]',
+    routeBadge: 'w-5 h-5 text-[10px]',
+    routeLabel: 'text-[11px]',
+  },
+};
+
+function makeArrivalPill(s: typeof SIZING[DeviceType]) {
+  return function renderArrivalPill(min: number, index: number) {
+    let borderClass = '';
+    let textClass = '';
+    if (min <= 5) {
+      borderClass = 'border-2 border-[#ff453a] bg-red-950/25';
+      textClass = 'text-[#ff453a] font-black shadow-[0_0_10px_rgba(255,69,58,0.45)]';
+    } else if (min <= 10) {
+      borderClass = 'border-2 border-[#ffd60a] bg-yellow-950/25';
+      textClass = 'text-[#ffd60a] font-black shadow-[0_0_10px_rgba(255,214,10,0.45)]';
+    } else if (min <= 15) {
+      borderClass = 'border-2 border-[#30d158] bg-green-950/25';
+      textClass = 'text-[#30d158] font-black shadow-[0_0_10px_rgba(48,209,88,0.45)]';
+    } else {
+      borderClass = 'border-2 border-[#005a18]/60 bg-[#001103]';
+      textClass = 'text-[#00ff41] font-black';
+    }
+
+    return (
+      <span key={index} className={`inline-flex items-center gap-1.5 rounded-md font-black font-mono select-none transition-all duration-200 ${s.arrivalPill} ${borderClass} ${textClass}`}>
+        <span>{min}</span>
+        <span className={`font-black tracking-wider opacity-90 ${s.arrivalPillMin}`}>MIN</span>
+      </span>
+    );
+  };
+}
+
+export default function App() {
+  const [device, setDevice] = useState<DeviceType | null>(null);
+
+  if (!device) {
+    return <BootScreen onSelect={setDevice} />;
   }
 
+  return <Dashboard device={device} />;
+}
+
+type FeedStatus = 'loading' | 'idle' | 'updating' | 'error';
+
+function AirportTag({ code }: { code: string }) {
+  const cc = getAirportCountry(code);
   return (
-    <span key={index} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-sm md:text-base font-black font-mono select-none transition-all duration-200 ${borderClass} ${textClass}`}>
-      <span>{min}</span>
-      <span className="text-[11px] md:text-xs font-black tracking-wider opacity-90">MIN</span>
+    <span className="inline-flex items-center gap-2">
+      {cc && (
+        <img
+          src={`https://flagcdn.com/w40/${cc}.png`}
+          srcSet={`https://flagcdn.com/w80/${cc}.png 2x`}
+          alt=""
+          aria-hidden="true"
+          className="h-5 w-auto inline-block rounded-sm shadow-[0_0_3px_rgba(0,0,0,0.6)]"
+          loading="lazy"
+        />
+      )}
+      <span>{code}</span>
     </span>
   );
 }
 
-export default function App() {
-  // Time and Date State (updates every second)
+function RouteWithFlags({ route }: { route: string }) {
+  const parts = route.split('➔').map(s => s.trim());
+  if (parts.length !== 2) return <>{route}</>;
+  return (
+    <span className="inline-flex items-center gap-3">
+      <AirportTag code={parts[0]} />
+      <span aria-hidden="true" className="opacity-80">➔</span>
+      <AirportTag code={parts[1]} />
+    </span>
+  );
+}
+
+function FooterLine({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex gap-1.5 text-[10px] font-extrabold tracking-wider leading-snug">
+      <span className="text-[#005a18]">&gt;</span>
+      <span className="label-dim">{label}:</span>
+      <span className="text-[#00ff41]">{value}</span>
+    </div>
+  );
+}
+
+function StatusValue({ status }: { status: FeedStatus }) {
+  if (status === 'updating') return <span className="text-[#00ff41] animate-pulse">UPDATING...</span>;
+  if (status === 'error') return <span className="text-[#ff453a] animate-pulse">SIGNAL LOST</span>;
+  if (status === 'loading') return <span className="label-dim animate-pulse">CONNECTING...</span>;
+  return <span className="text-[#00ff41]">ONLINE</span>;
+}
+
+function Dashboard({ device }: { device: DeviceType }) {
+  const s = SIZING[device];
+  const renderArrivalPill = useMemo(() => makeArrivalPill(s), [s]);
+
   const [now, setNow] = useState<Date>(new Date());
 
-  // --- WEATHER STATE ---
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherStatus, setWeatherStatus] = useState<'loading' | 'idle' | 'updating' | 'error'>('loading');
   const [weatherLastUpdated, setWeatherLastUpdated] = useState<string>('NEVER');
 
-  // --- AIRSPACE STATE ---
   const [airspace, setAirspace] = useState<AirspaceData | null>(null);
   const [airspaceStatus, setAirspaceStatus] = useState<'loading' | 'idle' | 'updating' | 'error'>('loading');
   const [airspaceLastUpdated, setAirspaceLastUpdated] = useState<string>('NEVER');
 
-  // --- TRANSIT STATE ---
   const [transit, setTransit] = useState<TransitData | null>(null);
   const [transitStatus, setTransitStatus] = useState<'loading' | 'idle' | 'updating' | 'error'>('loading');
   const [transitLastUpdated, setTransitLastUpdated] = useState<string>('NEVER');
 
-  // Update Clock
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // --- INDEPENDENT FETCH ACTIONS ---
-
-  // WEATHER API (Refresh every 10 mins)
   const fetchWeather = async () => {
     setWeatherStatus(prev => prev === 'loading' ? 'loading' : 'updating');
     try {
@@ -73,13 +207,10 @@ export default function App() {
     } catch (err) {
       console.error('Weather update error. Retry in 15 seconds.', err);
       setWeatherStatus('error');
-      // Auto-retry in 15 seconds if failed
-      const retryTimeout = setTimeout(fetchWeather, 15000);
-      return () => clearTimeout(retryTimeout);
+      setTimeout(fetchWeather, 15000);
     }
   };
 
-  // AIRSPACE API (Refresh every 15 seconds)
   const fetchAirspace = async () => {
     setAirspaceStatus(prev => prev === 'loading' ? 'loading' : 'updating');
     try {
@@ -92,13 +223,10 @@ export default function App() {
     } catch (err) {
       console.error('Airspace update error. Retry in 15 seconds.', err);
       setAirspaceStatus('error');
-      // Auto-retry in 15 seconds if failed
-      const retryTimeout = setTimeout(fetchAirspace, 15000);
-      return () => clearTimeout(retryTimeout);
+      setTimeout(fetchAirspace, 15000);
     }
   };
 
-  // TRANSIT API (Refresh every 20 seconds)
   const fetchTransit = async () => {
     setTransitStatus(prev => prev === 'loading' ? 'loading' : 'updating');
     try {
@@ -111,22 +239,19 @@ export default function App() {
     } catch (err) {
       console.error('Transit update error. Retry in 10 seconds.', err);
       setTransitStatus('error');
-      // Auto-retry in 10 seconds if failed
-      const retryTimeout = setTimeout(fetchTransit, 10000);
-      return () => clearTimeout(retryTimeout);
+      setTimeout(fetchTransit, 10000);
     }
   };
 
-  // Run initial fetches and setup intervals
   useEffect(() => {
     fetchWeather();
-    const weatherTimer = setInterval(fetchWeather, 10 * 60 * 1000); // 10 minutes
+    const weatherTimer = setInterval(fetchWeather, 10 * 60 * 1000);
 
     fetchAirspace();
-    const airspaceTimer = setInterval(fetchAirspace, 15 * 1000); // 15 seconds
+    const airspaceTimer = setInterval(fetchAirspace, 15 * 1000);
 
     fetchTransit();
-    const transitTimer = setInterval(fetchTransit, 20 * 1000); // 20 seconds
+    const transitTimer = setInterval(fetchTransit, 20 * 1000);
 
     return () => {
       clearInterval(weatherTimer);
@@ -135,18 +260,6 @@ export default function App() {
     };
   }, []);
 
-  // --- TRANSIT RENDERING DATA FORMAT ---
-  // Format stop descriptions to display clean destinations
-  const routeConfigs = [
-    { route: 'A', dir: 'N', dest: 'MANHATTAN' },
-    { route: 'A', dir: 'S', dest: 'ROCKAWAY' },
-    { route: 'C', dir: 'N', dest: 'MANHATTAN' },
-    { route: 'C', dir: 'S', dest: 'EUCLID AV' },
-    { route: 'G', dir: 'N', dest: 'COURT SQ' },
-    { route: 'G', dir: 'S', dest: 'CHURCH AV' },
-  ];
-
-  // --- AIRSPACE COMPUTATIONS ---
   const airspaceFlights = useMemo(() => {
     if (!airspace?.ac) return [];
     return [...airspace.ac]
@@ -154,7 +267,7 @@ export default function App() {
         const flightRaw = ac.flight || ac.callsign || ac.r || 'UNKN';
         const flight = flightRaw.trim();
         const type = ac.t || 'UNKN';
-        
+
         let altNum = 0;
         let altDisplay = '';
         if (ac.alt_baro === 'ground' || ac.alt_geom === 'ground') {
@@ -175,59 +288,46 @@ export default function App() {
 
         const speedVal = ac.gs ? Number(ac.gs) : null;
         const speedDisplay = speedVal !== null ? `${speedVal} KTS` : 'N/A';
-        
+
         const heading = getCompassHeading(ac.track);
         const route = getFlightRoute(flight);
         const airline = getAirlineName(flight);
+        const flag = getCountryFlag(flight);
 
-        return {
-          flight,
-          type,
-          altNum,
-          altDisplay,
-          speedDisplay,
-          heading,
-          route,
-          airline
-        };
+        return { flight, type, altNum, altDisplay, speedDisplay, heading, route, airline, flag };
       })
       .sort((a, b) => a.altNum - b.altNum);
   }, [airspace]);
 
-  // Format header dates
   const { day, time12hStr } = formatTime(now);
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden p-4 select-none relative bg-black text-[#00ff41] font-mono leading-normal">
-      
-      {/* CRT overlay */}
+    <div className={`h-screen w-screen flex flex-col overflow-hidden select-none relative bg-black text-[#00ff41] font-mono leading-normal ${s.root}`}>
       <div className="crt-overlay"></div>
 
-      {/* HEADER SECTION */}
-      <header className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end border-b-2 border-[#005a18] pb-3 mb-6 relative z-10">
-        <div className="flex flex-col font-black">
-          <div className="text-sm label-dim font-extrabold tracking-widest">SYSTEM_DATE // RTC_SYNC</div>
-          <div className="text-3xl font-black glitch-text phosphor-glow tracking-tight">{day}</div>
+      {/* HEADER */}
+      <header className={`items-center border-b-2 border-[#005a18] pb-3 relative z-10 ${s.headerWrap}`}>
+        <div className="flex items-center">
+          <div className={`font-black glitch-text phosphor-glow tracking-tight ${s.headerDate}`}>{day}</div>
         </div>
         <div className="flex items-center justify-center text-center whitespace-nowrap">
-          <div className="text-6xl font-black glitch-text phosphor-glow tracking-widest text-[#00ff41] leading-none">{time12hStr}</div>
+          <div className={`font-black glitch-text phosphor-glow tracking-widest text-[#00ff41] leading-none ${s.headerTime}`}>{time12hStr}</div>
         </div>
-        <div className="md:text-right text-left flex flex-col">
-          <div className="text-sm label-dim font-extrabold tracking-widest">COORDINATES: 40.6832, -73.9442</div>
-          <div className="text-2xl font-black phosphor-glow">QUINCY ST &times; NOSTRAND AVE // BED-STUY</div>
+        <div className={`flex items-center ${device === 'mobile' ? 'justify-center' : 'justify-end'}`}>
+          <div className={`font-black phosphor-glow tracking-widest ${s.headerLoc}`}>BED-STUY</div>
         </div>
       </header>
 
-      {/* DASHBOARD GRID PANELS */}
-      <div className="flex-1 flex flex-col md:flex-row gap-4 overflow-hidden relative z-10">
-        
+      {/* PANELS */}
+      <div className={`relative z-10 ${s.panelsWrap}`}>
+
         {/* PANEL 1: WEATHER */}
         <section className="flex-1 min-w-0 panel-border flex flex-col bg-black overflow-hidden relative">
-          <div className="panel-header flex items-center justify-center text-center text-sm font-extrabold py-2 px-4">
+          <div className="panel-header flex items-center justify-center text-center text-lg font-extrabold py-2.5 px-4">
             <span>[ WEATHER STATION ]</span>
           </div>
-          
-          <div className="p-4 md:p-5 flex-1 flex flex-col justify-between overflow-hidden bg-black">
+
+          <div className={`flex-1 flex flex-col justify-between overflow-hidden bg-black ${s.panelPad}`}>
             {weatherStatus === 'loading' && !weather ? (
               <div className="flex-1 flex flex-col items-center justify-center text-sm label-dim animate-pulse">
                 <span className="font-extrabold">ESTABLISHING SAT-LINK...</span>
@@ -241,62 +341,59 @@ export default function App() {
               </div>
             ) : (
               <div className={`flex flex-col justify-between h-full ${weatherStatus === 'updating' ? 'opacity-65' : 'opacity-100'} transition-opacity duration-300`}>
-                <div className="space-y-4 md:space-y-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-6xl md:text-7xl font-black value-bright glitch-text phosphor-glow">{Math.round(weather!.current.temperature_2m)}&deg;F</span>
-                    <div className="text-right">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`font-black value-bright glitch-text phosphor-glow ${s.weatherTemp}`}>{Math.round(weather!.current.temperature_2m)}&deg;F</span>
+                    <div className="text-right min-w-0">
                       <div className="label-dim text-xs font-extrabold tracking-wider">CONDITION</div>
-                      <div className="text-2xl md:text-3xl font-black phosphor-glow">{mapWmoCode(weather!.current.weathercode)}</div>
+                      <div className={`font-black phosphor-glow ${s.weatherCond}`}>{mapWmoCode(weather!.current.weathercode)}</div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t-2 border-[#005a18] pt-3">
                     <div className="space-y-0.5">
                       <div className="text-xs label-dim font-extrabold tracking-wider">FEELS LIKE</div>
-                      <div className="text-xl value-bright font-black">{Math.round(weather!.current.apparent_temperature)}&deg;F</div>
+                      <div className={`value-bright font-black ${s.weatherStat}`}>{Math.round(weather!.current.apparent_temperature)}&deg;F</div>
                     </div>
                     <div className="space-y-0.5">
                       <div className="text-xs label-dim font-extrabold tracking-wider">HUMIDITY</div>
-                      <div className="text-xl value-bright font-black">{weather!.current.relativehumidity_2m}%</div>
+                      <div className={`value-bright font-black ${s.weatherStat}`}>{weather!.current.relativehumidity_2m}%</div>
                     </div>
                     <div className="space-y-0.5">
                       <div className="text-xs label-dim font-extrabold tracking-wider">WIND SPEED</div>
-                      <div className="text-xl value-bright font-black">{weather!.current.windspeed_10m} MPH</div>
+                      <div className={`value-bright font-black ${s.weatherStat}`}>{weather!.current.windspeed_10m} MPH</div>
                     </div>
                     <div className="space-y-0.5">
                       <div className="text-xs label-dim font-extrabold tracking-wider">PRECIP CHANCE</div>
-                      <div className="text-xl value-bright font-black">{weather!.current.precipitation_probability}%</div>
+                      <div className={`value-bright font-black ${s.weatherStat}`}>{weather!.current.precipitation_probability}%</div>
                     </div>
                   </div>
                 </div>
 
-                {/* ASCII Art section wrapper to prevent scale from shifting the top border */}
                 <div className="flex-1 mt-4 border-t-2 border-[#005a18] flex items-center justify-center overflow-hidden">
-                  <div className="font-mono text-sm sm:text-base md:text-lg lg:text-xl text-[#00ff41] font-black leading-normal whitespace-pre scale-110 lg:scale-125 transition-transform duration-500">
-                    {getWeatherAscii(weather!.current.weathercode, now.getSeconds())}
+                  <div className={`font-mono text-[#00ff41] font-black leading-normal whitespace-pre ${s.weatherAscii}`}>
+                    <WeatherScene code={weather!.current.weathercode} hour={now.getHours()} />
                   </div>
                 </div>
               </div>
             )}
-            
-            <div className="mt-auto border-t-2 border-[#005a18] pt-3 text-xs label-dim font-extrabold flex justify-between items-center gap-2">
-              <span>LOC: BEDFORD-STUYVESANT</span>
-              <div className="flex items-center gap-2 text-[10px] md:text-xs shrink-0">
-                {weatherStatus === 'updating' && <span className="text-[#00ff41] font-black animate-pulse">[UPDATING]</span>}
-                {weatherStatus === 'error' && <span className="text-[#ff453a] font-black animate-pulse">[SIGNAL LOST]</span>}
-                <span>LAST UPDATED: {weatherLastUpdated}</span>
-              </div>
+
+            <div className="mt-auto border-t-2 border-[#005a18] pt-3 space-y-1">
+              <FooterLine label="COORDINATES" value="40.6832, -73.9442" />
+              <FooterLine label="SOURCE" value="OPEN-METEO" />
+              <FooterLine label="STATUS" value={<StatusValue status={weatherStatus} />} />
+              <FooterLine label="LAST UPDATED" value={weatherLastUpdated} />
             </div>
           </div>
         </section>
 
         {/* PANEL 2: AIRSPACE */}
         <section className="flex-1 min-w-0 panel-border flex flex-col bg-black overflow-hidden relative">
-          <div className="panel-header flex items-center justify-center text-center text-sm font-extrabold py-2 px-4">
-            <span>[ RADAR AIRSPACE CONTROL ]</span>
+          <div className="panel-header flex items-center justify-center text-center text-lg font-extrabold py-2.5 px-4">
+            <span>[ AIRSPACE RADAR ]</span>
           </div>
 
-          <div className="p-4 md:p-5 flex-1 flex flex-col justify-between overflow-hidden bg-black">
+          <div className={`flex-1 flex flex-col justify-between overflow-hidden bg-black ${s.panelPad}`}>
             {airspaceStatus === 'loading' && !airspace ? (
               <div className="flex-1 flex flex-col items-center justify-center text-sm label-dim animate-pulse">
                 <span className="font-extrabold">RADAR BOOT SEQUENCE...</span>
@@ -310,14 +407,9 @@ export default function App() {
               </div>
             ) : (
               <div className={`flex-1 flex flex-col overflow-hidden ${airspaceStatus === 'updating' ? 'opacity-65' : 'opacity-100'} transition-opacity duration-300`}>
-                
-                <div className="flex justify-between text-xs mb-3 label-dim font-black">
-                  <span>RANGE: 5 NAUTICAL MILES</span>
-                  <span>SCAN: MULTI-PASS COMPLETED</span>
-                </div>
 
                 <div className="flex-1 overflow-y-auto scrollbar-thin">
-                  <div className="grid grid-cols-1 gap-4 mb-4">
+                  <div className="grid grid-cols-1 gap-3 mb-4">
                     {airspaceFlights.length === 0 ? (
                       <div className="py-12 text-center text-sm label-dim border border-dashed border-[#005a18]/40 rounded">
                         <div className="font-black mb-2 text-base">NO TRAFFIC DETECTED</div>
@@ -325,51 +417,53 @@ export default function App() {
                       </div>
                     ) : (
                       airspaceFlights.map((flight, idx) => (
-                        <div key={idx} className="border-2 border-[#005a18] bg-black p-3.5 rounded relative flex flex-col justify-between hover:bg-[#001704]/40 transition-colors gap-2">
-                          {/* Corner braces for terminal retro visual feel */}
+                        <div key={idx} className="border-2 border-[#005a18] bg-black p-3 rounded relative flex flex-col hover:bg-[#001704]/40 transition-colors gap-2.5">
                           <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-[#00ff41]"></div>
                           <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-[#00ff41]"></div>
                           <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-[#00ff41]"></div>
                           <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-[#00ff41]"></div>
-                          
-                          <div className="flex justify-between items-center border-b border-[#005a18]/70 pb-2 animate-pulse-slow">
-                            <div className="flex items-center gap-2">
-                              <Plane className="w-5 h-5 text-[#00ff41]" />
-                              <div>
-                                <div className="text-lg font-black tracking-widest text-[#00ff41] leading-none">{flight.flight}</div>
-                                <div className="text-[10px] label-dim font-bold mt-0.5">AIRCRAFT: {flight.type}</div>
-                              </div>
+
+                          {/* TITLE: plane + flag + callsign, centered */}
+                          <div className="flex flex-col items-center text-center gap-0.5 border-b border-[#005a18]/70 pb-2">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-lg leading-none" aria-hidden="true">✈️</span>
+                              <span className="text-lg leading-none" aria-hidden="true">{flight.flag}</span>
+                              <span className="text-base font-black tracking-widest text-[#00ff41] leading-none phosphor-glow">{flight.flight}</span>
                             </div>
-                            <div className="text-right shrink-0">
-                              <span className="text-sm md:text-base font-black bg-[#005a18]/40 px-3.5 py-1.5 rounded bg-black text-[#00ff41] border-2 border-[#005a18] shadow-[0_0_10px_rgba(0,255,65,0.15)] whitespace-nowrap tracking-wider">
-                                {flight.route}
-                              </span>
-                            </div>
+                            <div className="text-[10px] label-dim font-bold tracking-wider">AIRCRAFT: {flight.type}</div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-2 text-xs pt-1">
-                            <div className="flex flex-col bg-[#001103] p-1.5 rounded border border-[#005a18]/40">
-                              <div className="flex items-center gap-1 label-dim text-[9px] font-black uppercase">
+                          {/* ROUTE: destination tile, centered below title */}
+                          <div className="flex justify-center py-1">
+                            <span className="text-lg md:text-xl font-black px-5 py-2.5 rounded-md bg-[#1a1300] text-[#ffd60a] border-2 border-[#ffd60a]/70 shadow-[0_0_14px_rgba(255,214,10,0.3)] whitespace-nowrap tracking-wider phosphor-glow-amber">
+                              <RouteWithFlags route={flight.route} />
+                            </span>
+                          </div>
+
+                          {/* STATS: 3-col grid with per-cell color */}
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div className="flex flex-col bg-[#001103] p-1.5 rounded border border-[#00ff41]/40 min-w-0">
+                              <div className="flex items-center gap-1 text-[#00aa2d] text-[9px] font-black uppercase">
                                 <ArrowUp className="w-3.5 h-3.5 text-[#00ff41]" />
                                 <span>ALTITUDE</span>
                               </div>
-                              <span className="font-extrabold value-bright text-xs md:text-sm mt-0.5 leading-none">{flight.altDisplay}</span>
+                              <span className="font-extrabold text-[#00ff41] text-xs mt-0.5 leading-none truncate">{flight.altDisplay}</span>
                             </div>
 
-                            <div className="flex flex-col bg-[#001103] p-1.5 rounded border border-[#005a18]/40">
-                              <div className="flex items-center gap-1 label-dim text-[9px] font-black uppercase">
-                                <Gauge className="w-3.5 h-3.5 text-[#00ff41]" />
+                            <div className="flex flex-col bg-[#001220] p-1.5 rounded border border-[#5ac8fa]/40 min-w-0">
+                              <div className="flex items-center gap-1 text-[#5ac8fa]/80 text-[9px] font-black uppercase">
+                                <Gauge className="w-3.5 h-3.5 text-[#5ac8fa]" />
                                 <span>GSPEED</span>
                               </div>
-                              <span className="font-extrabold value-bright text-xs md:text-sm mt-0.5 leading-none">{flight.speedDisplay}</span>
+                              <span className="font-extrabold text-[#5ac8fa] text-xs mt-0.5 leading-none truncate">{flight.speedDisplay}</span>
                             </div>
 
-                            <div className="flex flex-col bg-[#001103] p-1.5 rounded border border-[#005a18]/40 overflow-hidden">
-                              <div className="flex items-center gap-1 label-dim text-[9px] font-black uppercase">
-                                <Globe className="w-3.5 h-3.5 text-[#00ff41]" />
+                            <div className="flex flex-col bg-[#1a1300] p-1.5 rounded border border-[#ffd60a]/40 min-w-0 overflow-hidden">
+                              <div className="flex items-center gap-1 text-[#ffd60a]/80 text-[9px] font-black uppercase">
+                                <Globe className="w-3.5 h-3.5 text-[#ffd60a]" />
                                 <span>AIRLINE</span>
                               </div>
-                              <span className="font-extrabold value-bright text-xs md:text-sm mt-0.5 leading-none truncate whitespace-nowrap">{flight.airline}</span>
+                              <span className="font-extrabold text-[#ffd60a] text-xs mt-0.5 leading-none truncate">{flight.airline}</span>
                             </div>
                           </div>
                         </div>
@@ -380,29 +474,25 @@ export default function App() {
               </div>
             )}
 
-            <div className="mt-auto">
-              <div className="text-xs label-dim bg-[#001103] p-2 mb-3 font-extrabold tracking-widest border border-[#005a18]">
-                ACTIVE TRANSCEIVER: NY_JFK_APP_SOUTH // 5NM_SWEEP
-              </div>
-              <div className="border-t-2 border-[#005a18] pt-3 text-xs label-dim font-extrabold flex justify-between items-center gap-2">
-                <span>SYSTEM ID: BEDSTUY-RAD01</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  {airspaceStatus === 'updating' && <span className="text-[#00ff41] font-black animate-pulse">[UPDATING]</span>}
-                  {airspaceStatus === 'error' && <span className="text-[#ff453a] font-black animate-pulse">[SIGNAL LOST]</span>}
-                  <span>LAST UPDATED: {airspaceLastUpdated}</span>
-                </div>
-              </div>
+            <div className="mt-auto border-t-2 border-[#005a18] pt-3 space-y-1">
+              <FooterLine label="SYSTEM ID" value="BEDSTUY-RAD01" />
+              <FooterLine label="LOC" value="NY_JFK_APP_SOUTH // 5NM_SWEEP" />
+              <FooterLine label="RANGE" value="5 NAUTICAL MILES" />
+              <FooterLine label="SCAN" value="MULTI-PASS COMPLETED" />
+              <FooterLine label="SOURCE" value="ADSB.LOL" />
+              <FooterLine label="STATUS" value={<StatusValue status={airspaceStatus} />} />
+              <FooterLine label="LAST UPDATED" value={airspaceLastUpdated} />
             </div>
           </div>
         </section>
 
         {/* PANEL 3: TRANSIT */}
         <section className="flex-1 min-w-0 panel-border flex flex-col bg-black overflow-hidden relative">
-          <div className="panel-header flex items-center justify-center text-center text-sm font-extrabold py-2 px-4">
-            <span>[ REALTIME TRANSIT MONITOR ]</span>
+          <div className="panel-header flex items-center justify-center text-center text-lg font-extrabold py-2.5 px-4">
+            <span>[ TRANSIT MONITOR ]</span>
           </div>
 
-          <div className="p-4 md:p-5 flex-1 flex flex-col justify-between overflow-hidden bg-black">
+          <div className={`flex-1 flex flex-col justify-between overflow-hidden bg-black ${s.panelPad}`}>
             {transitStatus === 'loading' && !transit ? (
               <div className="flex-1 flex flex-col items-center justify-center text-sm label-dim animate-pulse">
                 <span className="font-extrabold">CONNECTING MTA GTFS-RT FEEDS...</span>
@@ -415,75 +505,53 @@ export default function App() {
                 <span className="text-xs label-dim mt-4">AUTO-RETRIES CONNECTING...</span>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col justify-start py-1 overflow-hidden space-y-3.5">
-                
-                {/* Station Section: Myrtle-Willoughby G */}
-                <div className="border-2 border-[#00a82d]/50 bg-[#00a82d]/5 p-1.5 px-2 rounded-lg space-y-0.5">
-                  <div className="flex items-center gap-2 pb-0.5 border-b border-[#00a82d]/20">
-                    <span className="bg-[#00a82d] text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs select-none font-sans shadow-md">G</span>
-                    <span className="text-xs font-black font-mono tracking-widest whitespace-normal break-words text-[#00a82d]">MYRTLE-WILLOUGHBY &times; G_LOCAL</span>
+              <div className="flex-1 flex flex-col justify-start py-1 overflow-hidden space-y-3">
+
+                {/* G */}
+                <div className="border-2 border-[#00a82d]/50 bg-[#00a82d]/5 p-2 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 pb-1 border-b border-[#00a82d]/20">
+                    <span className={`bg-[#00a82d] text-white rounded-full flex items-center justify-center font-black select-none font-sans shadow-md ${s.routeBadge}`}>G</span>
+                    <span className={`font-black font-mono tracking-widest whitespace-normal break-words text-[#00a82d] ${s.routeLabel}`}>BEDFORD-NOSTRAND</span>
                   </div>
-                  {['N', 'S'].map(dir => {
+                  {(['N', 'S'] as const).map(dir => {
                     const dest = dir === 'N' ? 'COURT SQ' : 'CHURCH AV';
-                    const arrivals = transit?.['G']?.[dir as 'N' | 'S'] || [];
+                    const arrivals = transit?.['G']?.[dir] || [];
                     return (
-                      <div key={dir} className="flex justify-between items-center px-1 py-0 gap-2 rounded border border-transparent overflow-hidden">
-                        <span className="text-xs label-dim font-black tracking-widest font-mono whitespace-nowrap truncate mr-2">{dest}</span>
-                        <div className="flex flex-wrap gap-1 justify-end text-right">
-                          {arrivals.length === 0 ? (
-                            <span className="text-[10px] label-dim italic font-bold">NO RUNNING DEP</span>
-                          ) : (
-                            arrivals.map((min, index) => renderArrivalPill(min, index))
-                          )}
-                        </div>
+                      <div key={dir} className="px-1 space-y-1 overflow-hidden">
+                        <div className={`label-dim font-black tracking-widest font-mono ${s.routeLabel}`}>{dest}</div>
+                        {arrivals.length === 0
+                          ? <div className="text-xs font-black tracking-widest text-[#ff453a] phosphor-glow-red">NOT RUNNING</div>
+                          : <div className="flex flex-wrap gap-1">{arrivals.map((min, index) => renderArrivalPill(min, index))}</div>}
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Station Section: Nostrand Av A */}
-                <div className="border-2 border-[#0a84ff]/50 bg-[#0a84ff]/5 p-1.5 px-2 rounded-lg space-y-0.5">
-                  <div className="flex items-center gap-2 pb-0.5 border-b border-[#0a84ff]/20">
-                    <span className="bg-[#0039a6] text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs select-none font-sans shadow-md">A</span>
-                    <span className="text-xs font-black font-mono tracking-widest whitespace-normal break-words text-[#0a84ff]">NOSTRAND AV &times; A_EXPRESS</span>
+                {/* A & C — both serve Nostrand Av */}
+                <div className="border-2 border-[#0a84ff]/50 bg-[#0a84ff]/5 p-2 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 pb-1 border-b border-[#0a84ff]/20">
+                    <div className="flex items-center gap-1">
+                      <span className={`bg-[#0039a6] text-white rounded-full flex items-center justify-center font-black select-none font-sans shadow-md ${s.routeBadge}`}>A</span>
+                      <span className={`bg-[#0039a6] text-white rounded-full flex items-center justify-center font-black select-none font-sans shadow-md ${s.routeBadge}`}>C</span>
+                    </div>
+                    <span className={`font-black font-mono tracking-widest whitespace-normal break-words text-[#0a84ff] ${s.routeLabel}`}>NOSTRAND AV</span>
                   </div>
-                  {['N', 'S'].map(dir => {
-                    const dest = dir === 'N' ? 'MANHATTAN' : 'ROCKAWAY';
-                    const arrivals = transit?.['A']?.[dir as 'N' | 'S'] || [];
+                  {([
+                    { route: 'A' as const, dir: 'N' as const, dest: 'MANHATTAN' },
+                    { route: 'A' as const, dir: 'S' as const, dest: 'ROCKAWAY' },
+                    { route: 'C' as const, dir: 'N' as const, dest: 'MANHATTAN' },
+                    { route: 'C' as const, dir: 'S' as const, dest: 'EUCLID AV' },
+                  ]).map(({ route, dir, dest }) => {
+                    const arrivals = transit?.[route]?.[dir] || [];
                     return (
-                      <div key={dir} className="flex justify-between items-center px-1 py-0 gap-2 rounded border border-transparent overflow-hidden">
-                        <span className="text-xs label-dim font-black tracking-widest font-mono whitespace-nowrap truncate mr-2">{dest}</span>
-                        <div className="flex flex-wrap gap-1 justify-end text-right">
-                          {arrivals.length === 0 ? (
-                            <span className="text-[10px] label-dim italic font-bold">NO RUNNING DEP</span>
-                          ) : (
-                            arrivals.map((min, index) => renderArrivalPill(min, index))
-                          )}
+                      <div key={`${route}-${dir}`} className="px-1 space-y-1 overflow-hidden">
+                        <div className="flex items-center gap-1.5">
+                          <span className="bg-[#0039a6] text-white rounded-full flex items-center justify-center font-black select-none font-sans shadow-md w-4 h-4 text-[10px]">{route}</span>
+                          <span className={`label-dim font-black tracking-widest font-mono ${s.routeLabel}`}>{dest}</span>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Station Section: Nostrand Av C */}
-                <div className="border-2 border-[#0a84ff]/50 bg-[#0a84ff]/5 p-1.5 px-2 rounded-lg space-y-0.5">
-                  <div className="flex items-center gap-2 pb-0.5 border-b border-[#0a84ff]/20">
-                    <span className="bg-[#0039a6] text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs select-none font-sans shadow-md">C</span>
-                    <span className="text-xs font-black font-mono tracking-widest whitespace-normal break-words text-[#0a84ff]">NOSTRAND AV &times; C_LOCAL</span>
-                  </div>
-                  {['N', 'S'].map(dir => {
-                    const dest = dir === 'N' ? 'MANHATTAN' : 'EUCLID AV';
-                    const arrivals = transit?.['C']?.[dir as 'N' | 'S'] || [];
-                    return (
-                      <div key={dir} className="flex justify-between items-center px-1 py-0 gap-2 rounded border border-transparent overflow-hidden">
-                        <span className="text-xs label-dim font-black tracking-widest font-mono whitespace-nowrap truncate mr-2">{dest}</span>
-                        <div className="flex flex-wrap gap-1 justify-end text-right">
-                          {arrivals.length === 0 ? (
-                            <span className="text-[10px] label-dim italic font-bold">NO RUNNING DEP</span>
-                          ) : (
-                            arrivals.map((min, index) => renderArrivalPill(min, index))
-                          )}
-                        </div>
+                        {arrivals.length === 0
+                          ? <div className="text-xs font-black tracking-widest text-[#ff453a] phosphor-glow-red ml-6">NOT RUNNING</div>
+                          : <div className="flex flex-wrap gap-1 ml-6">{arrivals.map((min, index) => renderArrivalPill(min, index))}</div>}
                       </div>
                     );
                   })}
@@ -492,15 +560,11 @@ export default function App() {
               </div>
             )}
 
-            <div className="mt-auto">
-              <div className="border-t-2 border-[#005a18] pt-3 text-xs label-dim font-extrabold flex justify-between items-center gap-2">
-                <span>STOPS: A42 / G29</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  {transitStatus === 'updating' && <span className="text-[#00ff41] font-black animate-pulse">[UPDATING]</span>}
-                  {transitStatus === 'error' && <span className="text-[#ff453a] font-black animate-pulse">[SIGNAL LOST]</span>}
-                  <span>LAST UPDATED: {transitLastUpdated}</span>
-                </div>
-              </div>
+            <div className="mt-auto border-t-2 border-[#005a18] pt-3 space-y-1">
+              <FooterLine label="STOPS" value="A42 / G33" />
+              <FooterLine label="SOURCE" value="MTA GTFS-RT" />
+              <FooterLine label="STATUS" value={<StatusValue status={transitStatus} />} />
+              <FooterLine label="LAST UPDATED" value={transitLastUpdated} />
             </div>
           </div>
         </section>

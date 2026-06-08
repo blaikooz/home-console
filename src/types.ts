@@ -2,6 +2,8 @@
  * Type declarations for Bed-Stuy Console
  */
 
+export type DeviceType = 'desktop' | 'tablet' | 'mobile';
+
 export interface WeatherData {
   current: {
     temperature_2m: number;

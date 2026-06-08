@@ -36,8 +36,7 @@
     padding: 4px 10px;
     font-weight: 900;
     text-transform: uppercase;
-    font-size: 0.875rem; /* larger header text */
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
   }
 
   .value-bright {
@@ -56,6 +55,14 @@
 
   .phosphor-glow-dim {
     text-shadow: 0 0 3px rgba(0, 59, 15, 0.5);
+  }
+
+  .phosphor-glow-red {
+    text-shadow: 0 0 6px rgba(255, 69, 58, 0.7);
+  }
+
+  .phosphor-glow-amber {
+    text-shadow: 0 0 6px rgba(255, 214, 10, 0.6);
   }
 
   /* Terminal scanline flicker animation */
