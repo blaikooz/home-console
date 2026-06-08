@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "nodeVersion": "22.x",
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "functions": {
